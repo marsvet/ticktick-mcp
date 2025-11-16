@@ -14,12 +14,15 @@ RUN uv pip install -e .
 
 COPY . .
 
-CMD [ \
-    "mcp-proxy", \
-    "--host=0.0.0.0", \
-    "--port=8080", \
-    "--pass-environment", \
-    "--named-server", \
-    "ticktick-mcp", \
-    "uv run -m ticktick_mcp.cli run" \
-]
+# Copy and set permissions for entrypoint script
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# Use ENTRYPOINT to support both stdio and http modes
+# Control mode via MCP_TRANSPORT environment variable:
+#   - stdio: Run MCP server directly (for standard input/output communication, default)
+#   - http: Use mcp-proxy to provide HTTP interface
+# Other optional environment variables:
+#   - MCP_HOST: Host address for HTTP mode (default: 0.0.0.0)
+#   - MCP_PORT: Port for HTTP mode (default: 8080)
+ENTRYPOINT ["/entrypoint.sh"]
