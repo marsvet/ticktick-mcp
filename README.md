@@ -62,6 +62,82 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server for Ti
    ```
    This will verify that your TickTick credentials are working correctly.
 
+## Docker Usage
+
+You can also run the TickTick MCP server using Docker. This is useful for containerized deployments or when you prefer not to install dependencies locally.
+
+### Building the Docker Image
+
+1. **Build the image**:
+   ```bash
+   docker build -t ticktick-mcp .
+   ```
+
+### Running the Container
+
+The Docker container supports two transport modes: `stdio` (default) and `http`.
+
+#### stdio Mode (Default)
+
+For stdio mode, which is typically used with MCP clients like Claude Desktop:
+
+```bash
+docker run -it --rm \
+  -v $(pwd)/.env:/app/.env \
+  ticktick-mcp
+```
+
+Or explicitly set the transport mode:
+
+```bash
+docker run -it --rm \
+  -e MCP_TRANSPORT=stdio \
+  -v $(pwd)/.env:/app/.env \
+  ticktick-mcp
+```
+
+#### HTTP Mode
+
+For HTTP mode, which exposes the MCP server via HTTP:
+
+```bash
+docker run -it --rm \
+  -e MCP_TRANSPORT=http \
+  -e MCP_HOST=0.0.0.0 \
+  -e MCP_PORT=8080 \
+  -p 8080:8080 \
+  -v $(pwd)/.env:/app/.env \
+  ticktick-mcp
+```
+
+**Environment Variables**:
+- `MCP_TRANSPORT`: Transport mode (`stdio` or `http`, default: `stdio`)
+- `MCP_HOST`: Host address for HTTP mode (default: `0.0.0.0`)
+- `MCP_PORT`: Port for HTTP mode (default: `8080`)
+
+**Note**: Make sure you have completed the authentication step (see [Authentication with TickTick](#authentication-with-ticktick)) and have a `.env` file with your credentials before running the container. Mount the `.env` file as shown in the examples above.
+
+### Using Docker with Claude Desktop
+
+If you want to use the Docker container with Claude Desktop, you can configure it to run the container:
+
+```json
+{
+   "mcpServers": {
+      "ticktick": {
+         "command": "docker",
+         "args": [
+            "run", "-i", "--rm",
+            "-v", "/path/to/your/.env:/app/.env",
+            "ticktick-mcp"
+         ]
+      }
+   }
+}
+```
+
+Replace `/path/to/your/.env` with the absolute path to your `.env` file.
+
 ## Authentication with TickTick
 
 This server uses OAuth2 to authenticate with TickTick. The setup process is straightforward:
@@ -204,7 +280,7 @@ Following David Allen's "Getting Things Done" framework, manage an Engaged and N
 For example:
 
 - "Time block the rest of my day from 2-8pm with items from my engaged list"
-- "Walk me through my next actions and help my identify what I should focus on tomorrow?" 
+- "Walk me through my next actions and help my identify what I should focus on tomorrow?"
 - "Break down this project into 5 smaller actionable tasks"
 
 ## Development
