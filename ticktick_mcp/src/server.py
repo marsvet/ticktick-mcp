@@ -37,7 +37,7 @@ def initialize_client():
         logger.info("TickTick client initialized successfully")
 
         # Test API connectivity
-        projects = ticktick.get_projects()
+        projects = get_projects_with_inbox()
         if "error" in projects:
             logger.error(f"Failed to access TickTick API: {projects['error']}")
             logger.error(
@@ -118,6 +118,69 @@ def format_project(project: Dict) -> str:
     return formatted
 
 
+def get_real_inbox_id() -> str:
+    """
+    Get the real inbox project ID by fetching tasks with id "inbox" and extracting
+    the projectId from a task. If no tasks are found, return "inbox" as default.
+
+    Returns:
+        The real inbox project ID
+    """
+    try:
+        # Try to get tasks using "inbox" as project_id
+        project_data = ticktick.get_project_with_data("inbox")
+
+        # Check for errors
+        if isinstance(project_data, dict) and "error" in project_data:
+            # If error, default to "inbox"
+            return "inbox"
+
+        # Get tasks from the response
+        tasks = project_data.get("tasks", [])
+
+        # If there are tasks, get the projectId from the first task
+        if tasks and len(tasks) > 0:
+            first_task = tasks[0]
+            real_inbox_id = first_task.get("projectId")
+            if real_inbox_id:
+                return real_inbox_id
+
+        # If no tasks found, default to "inbox"
+        return "inbox"
+    except Exception as e:
+        logger.warning(f"Failed to get real inbox ID: {e}, using default 'inbox'")
+        return "inbox"
+
+
+def get_projects_with_inbox() -> List[Dict]:
+    """
+    Get all projects from TickTick and ensure inbox project is included.
+    If inbox doesn't exist in the API response, it will be added at the beginning.
+
+    Returns:
+        List of project dictionaries, with inbox at the beginning if it was missing.
+    """
+    projects = ticktick.get_projects()
+
+    # Handle error case - return as is (caller should check for "error" key)
+    if isinstance(projects, dict) and "error" in projects:
+        return projects
+
+    # Ensure projects is a list
+    if not isinstance(projects, list):
+        return projects
+
+    # Check if inbox project exists
+    has_inbox = any(project.get("id") == "inbox" for project in projects)
+
+    # If inbox doesn't exist, add it at the beginning
+    if not has_inbox:
+        inbox_project = {"id": "inbox", "name": "Inbox", "kind": "TASK"}
+        projects.insert(0, inbox_project)
+
+    return projects
+
+
 # MCP Tools
 
 
@@ -129,7 +192,7 @@ async def get_projects() -> str:
             return "Failed to initialize TickTick client. Please check your API credentials."
 
     try:
-        projects = ticktick.get_projects()
+        projects = get_projects_with_inbox()
         if "error" in projects:
             return f"Error fetching projects: {projects['error']}"
 
@@ -154,6 +217,11 @@ async def get_project(project_id: str) -> str:
     Args:
         project_id: ID of the project
     """
+    # Handle inbox project with fixed result
+    if project_id == "inbox" or project_id == get_real_inbox_id():
+        inbox_project = {"id": "inbox", "name": "Inbox", "kind": "TASK"}
+        return format_project(inbox_project)
+
     if not ticktick:
         if not initialize_client():
             return "Failed to initialize TickTick client. Please check your API credentials."
@@ -182,6 +250,11 @@ async def get_project_tasks(project_id: str) -> str:
             return "Failed to initialize TickTick client. Please check your API credentials."
 
     try:
+        # If project_id is "inbox", get the real inbox ID first
+        if project_id == "inbox":
+            real_inbox_id = get_real_inbox_id()
+            project_id = real_inbox_id
+
         project_data = ticktick.get_project_with_data(project_id)
         if "error" in project_data:
             return f"Error fetching project data: {project_data['error']}"
@@ -214,6 +287,11 @@ async def get_task(project_id: str, task_id: str) -> str:
             return "Failed to initialize TickTick client. Please check your API credentials."
 
     try:
+        # If project_id is "inbox", get the real inbox ID first
+        if project_id == "inbox":
+            real_inbox_id = get_real_inbox_id()
+            project_id = real_inbox_id
+
         task = ticktick.get_task(project_id, task_id)
         if "error" in task:
             return f"Error fetching task: {task['error']}"
@@ -253,6 +331,11 @@ async def create_task(
         return "Invalid priority. Must be 0 (None), 1 (Low), 3 (Medium), or 5 (High)."
 
     try:
+        # If project_id is "inbox", get the real inbox ID first
+        if project_id == "inbox":
+            real_inbox_id = get_real_inbox_id()
+            project_id = real_inbox_id
+
         # Validate dates if provided
         for date_str, date_name in [(start_date, "start_date"), (due_date, "due_date")]:
             if date_str:
@@ -311,6 +394,11 @@ async def update_task(
         return "Invalid priority. Must be 0 (None), 1 (Low), 3 (Medium), or 5 (High)."
 
     try:
+        # If project_id is "inbox", get the real inbox ID first
+        if project_id == "inbox":
+            real_inbox_id = get_real_inbox_id()
+            project_id = real_inbox_id
+
         # Validate dates if provided
         for date_str, date_name in [(start_date, "start_date"), (due_date, "due_date")]:
             if date_str:
@@ -353,6 +441,11 @@ async def complete_task(project_id: str, task_id: str) -> str:
             return "Failed to initialize TickTick client. Please check your API credentials."
 
     try:
+        # If project_id is "inbox", get the real inbox ID first
+        if project_id == "inbox":
+            real_inbox_id = get_real_inbox_id()
+            project_id = real_inbox_id
+
         result = ticktick.complete_task(project_id, task_id)
         if "error" in result:
             return f"Error completing task: {result['error']}"
@@ -377,6 +470,11 @@ async def delete_task(project_id: str, task_id: str) -> str:
             return "Failed to initialize TickTick client. Please check your API credentials."
 
     try:
+        # If project_id is "inbox", get the real inbox ID first
+        if project_id == "inbox":
+            real_inbox_id = get_real_inbox_id()
+            project_id = real_inbox_id
+
         result = ticktick.delete_task(project_id, task_id)
         if "error" in result:
             return f"Error deleting task: {result['error']}"
@@ -427,6 +525,10 @@ async def delete_project(project_id: str) -> str:
     Args:
         project_id: ID of the project
     """
+    # Prevent deletion of inbox project
+    if project_id == "inbox" or project_id == get_real_inbox_id():
+        return "Error: Cannot delete the inbox project. The inbox is a system project and cannot be deleted."
+
     if not ticktick:
         if not initialize_client():
             return "Failed to initialize TickTick client. Please check your API credentials."
@@ -614,7 +716,7 @@ async def get_all_tasks() -> str:
             return "Failed to initialize TickTick client. Please check your API credentials."
 
     try:
-        projects = ticktick.get_projects()
+        projects = get_projects_with_inbox()
         if "error" in projects:
             return f"Error fetching projects: {projects['error']}"
 
@@ -644,7 +746,7 @@ async def get_tasks_by_priority(priority_id: int) -> str:
         return f"Invalid priority_id. Valid values: {list(PRIORITY_MAP.keys())}"
 
     try:
-        projects = ticktick.get_projects()
+        projects = get_projects_with_inbox()
         if "error" in projects:
             return f"Error fetching projects: {projects['error']}"
 
@@ -669,7 +771,7 @@ async def get_tasks_due_today() -> str:
             return "Failed to initialize TickTick client. Please check your API credentials."
 
     try:
-        projects = ticktick.get_projects()
+        projects = get_projects_with_inbox()
         if "error" in projects:
             return f"Error fetching projects: {projects['error']}"
 
@@ -691,7 +793,7 @@ async def get_overdue_tasks() -> str:
             return "Failed to initialize TickTick client. Please check your API credentials."
 
     try:
-        projects = ticktick.get_projects()
+        projects = get_projects_with_inbox()
         if "error" in projects:
             return f"Error fetching projects: {projects['error']}"
 
@@ -713,7 +815,7 @@ async def get_tasks_due_tomorrow() -> str:
             return "Failed to initialize TickTick client. Please check your API credentials."
 
     try:
-        projects = ticktick.get_projects()
+        projects = get_projects_with_inbox()
         if "error" in projects:
             return f"Error fetching projects: {projects['error']}"
 
@@ -743,7 +845,7 @@ async def get_tasks_due_in_days(days: int) -> str:
         return "Days must be a non-negative integer."
 
     try:
-        projects = ticktick.get_projects()
+        projects = get_projects_with_inbox()
         if "error" in projects:
             return f"Error fetching projects: {projects['error']}"
 
@@ -770,7 +872,7 @@ async def get_tasks_due_this_week() -> str:
             return "Failed to initialize TickTick client. Please check your API credentials."
 
     try:
-        projects = ticktick.get_projects()
+        projects = get_projects_with_inbox()
         if "error" in projects:
             return f"Error fetching projects: {projects['error']}"
 
@@ -812,7 +914,7 @@ async def search_tasks(search_term: str) -> str:
         return "Search term cannot be empty."
 
     try:
-        projects = ticktick.get_projects()
+        projects = get_projects_with_inbox()
         if "error" in projects:
             return f"Error fetching projects: {projects['error']}"
 
@@ -946,7 +1048,7 @@ async def get_engaged_tasks() -> str:
             return "Failed to initialize TickTick client. Please check your API credentials."
 
     try:
-        projects = ticktick.get_projects()
+        projects = get_projects_with_inbox()
         if "error" in projects:
             return f"Error fetching projects: {projects['error']}"
 
@@ -974,7 +1076,7 @@ async def get_next_tasks() -> str:
             return "Failed to initialize TickTick client. Please check your API credentials."
 
     try:
-        projects = ticktick.get_projects()
+        projects = get_projects_with_inbox()
         if "error" in projects:
             return f"Error fetching projects: {projects['error']}"
 

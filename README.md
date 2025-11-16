@@ -9,6 +9,7 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server for Ti
 - 🔄 Update existing task details (title, content, dates, priority)
 - ✅ Mark tasks as complete
 - 🗑️ Delete tasks and projects
+- 📥 Inbox Support: Get, search, create, update, and delete tasks in the Inbox
 - 🔄 Full integration with TickTick's open API
 - 🔌 Seamless integration with Claude and other MCP clients
 
